@@ -1,0 +1,15 @@
+[project]
+project_ref = "twuimpscnrhyurlrzyvo"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["https://*"]
+disable_signup = false
+
+[auth.email]
+enable_confirmations = true
+enable_autoconfirm = false
+
+[api]
+port = 54321
