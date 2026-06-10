@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { User, Mail, Calendar, Shield, Save } from 'lucide-react'
+import { User, Mail, Calendar, Shield, Save, Key } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
@@ -9,6 +9,8 @@ export default function Profile() {
   const { user, profile, refreshProfile } = useAuth()
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [lifetimeCode, setLifetimeCode] = useState('')
+  const [lifetimeLoading, setLifetimeLoading] = useState(false)
 
   useEffect(() => {
     if (profile) setFullName(profile.full_name || '')
@@ -30,6 +32,27 @@ export default function Profile() {
     setLoading(false)
   }
 
+  const activateLifetime = async (e) => {
+    e.preventDefault()
+    if (lifetimeCode !== 'sidou9090') {
+      toast.error('Invalid code')
+      return
+    }
+    setLifetimeLoading(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: 'lifetime' })
+      .eq('id', user.id)
+    if (error) {
+      toast.error(error.message)
+    } else {
+      toast.success('Lifetime plan activated! Welcome to Sidou Signals forever 🎉')
+      await refreshProfile()
+      setLifetimeCode('')
+    }
+    setLifetimeLoading(false)
+  }
+
   const roleColors = {
     admin: 'from-red-500 to-pink-500',
     premium: 'from-primary to-primary-dark',
@@ -39,7 +62,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen pt-20 pb-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -97,6 +120,26 @@ export default function Profile() {
             </form>
           </div>
         </motion.div>
+
+        {profile?.role !== 'lifetime' && profile?.role !== 'admin' && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className="bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border p-6 lg:p-8">
+            <div className="flex items-center gap-3 mb-4">
+              <Key className="w-6 h-6 text-purple-500" />
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Activate Lifetime Plan</h2>
+            </div>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">Enter your lifetime activation code to unlock all features forever.</p>
+            <form onSubmit={activateLifetime} className="flex gap-3">
+              <input type="text" value={lifetimeCode} onChange={e => setLifetimeCode(e.target.value)}
+                placeholder="Enter code..." required
+                className="flex-1 px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 transition-colors" />
+              <button type="submit" disabled={lifetimeLoading}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-50">
+                {lifetimeLoading ? 'Activating...' : 'Activate'}
+              </button>
+            </form>
+          </motion.div>
+        )}
       </div>
     </div>
   )

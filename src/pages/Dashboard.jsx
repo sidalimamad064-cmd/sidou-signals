@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp, TrendingDown, Clock, Activity, Zap, BarChart3 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { TrendingUp, TrendingDown, Clock, Activity, Zap, BarChart3, ArrowRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 
@@ -11,19 +12,46 @@ const roleColors = {
   free: 'from-gray-500 to-gray-600',
 }
 
+function isThisMonth(d) {
+  const now = new Date()
+  const date = new Date(d)
+  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+}
+
 export default function Dashboard() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const [signals, setSignals] = useState([])
+  const [trades, setTrades] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchSignals = async () => {
-      const { data } = await supabase.from('signals').select('*').order('created_at', { ascending: false }).limit(10)
-      if (data) setSignals(data)
+    const fetchData = async () => {
+      const [signalsRes, tradesRes] = await Promise.all([
+        supabase.from('signals').select('*').order('created_at', { ascending: false }).limit(10),
+        supabase.from('trades').select('*').eq('user_id', user.id).order('trade_date', { ascending: false }),
+      ])
+      if (signalsRes.data) setSignals(signalsRes.data)
+      if (tradesRes.data) setTrades(tradesRes.data)
       setLoading(false)
     }
-    fetchSignals()
+    fetchData()
   }, [])
+
+  const stats = useMemo(() => {
+    const monthTrades = trades.filter(t => isThisMonth(t.trade_date))
+    const closed = monthTrades.filter(t => t.result !== 'pending')
+    const wins = closed.filter(t => t.result === 'win').length
+    const losses = closed.filter(t => t.result === 'loss').length
+    const winRate = closed.length > 0 ? (wins / closed.length) * 100 : 0
+    const totalPl = monthTrades.reduce((sum, t) => sum + parseFloat(t.profit_loss || 0), 0)
+    return {
+      total: monthTrades.length,
+      closed: closed.length,
+      wins, losses,
+      winRate: Math.round(winRate * 10) / 10,
+      totalPl: Math.round(totalPl * 100) / 100,
+    }
+  }, [trades])
 
   const planLabel = profile?.role?.charAt(0).toUpperCase() + profile?.role?.slice(1)
 
@@ -100,20 +128,30 @@ export default function Dashboard() {
             <div className="bg-white dark:bg-dark-card rounded-2xl border border-gray-200 dark:border-dark-border p-6">
               <div className="flex items-center gap-3 mb-4">
                 <Activity className="w-5 h-5 text-primary" />
-                <h3 className="font-semibold text-gray-900 dark:text-white">Stats</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white">Monthly Stats</h3>
               </div>
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500">Win Rate</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">94.2%</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.winRate}%</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Total Signals</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">1,284</p>
+                  <p className="text-sm text-gray-500">Total Trades</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Active Signals</p>
-                  <p className="text-2xl font-bold text-green-600">{signals.filter(s => s.status === 'active').length}</p>
+                  <p className="text-sm text-gray-500">Wins / Losses</p>
+                  <p className="text-xl font-bold">
+                    <span className="text-green-600">{stats.wins}</span>
+                    <span className="text-gray-400 mx-1">/</span>
+                    <span className="text-red-600">{stats.losses}</span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">P&L</p>
+                  <p className={`text-2xl font-bold ${stats.totalPl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {stats.totalPl >= 0 ? '+' : ''}{stats.totalPl}%
+                  </p>
                 </div>
               </div>
             </div>
@@ -125,12 +163,12 @@ export default function Dashboard() {
                   <h3 className="font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
                 </div>
                 <div className="space-y-2">
-                  <button className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-primary to-secondary text-white text-sm font-medium hover:opacity-90 transition-opacity">
-                    View All Signals
-                  </button>
-                  <button className="w-full py-2 px-4 rounded-lg border border-gray-300 dark:border-dark-border text-gray-700 dark:text-gray-200 text-sm font-medium hover:border-primary transition-colors">
-                    Set Preferences
-                  </button>
+                  <Link to="/trades" className="flex items-center justify-between w-full py-2 px-4 rounded-lg bg-gradient-to-r from-primary to-secondary text-white text-sm font-medium hover:opacity-90 transition-opacity">
+                    My Trades <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <Link to="/profile" className="flex items-center justify-between w-full py-2 px-4 rounded-lg border border-gray-300 dark:border-dark-border text-gray-700 dark:text-gray-200 text-sm font-medium hover:border-primary transition-colors">
+                    Profile <ArrowRight className="w-4 h-4" />
+                  </Link>
                 </div>
               </div>
             )}

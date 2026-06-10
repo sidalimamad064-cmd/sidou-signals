@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Menu, X, Moon, Sun, LogOut, User, LayoutDashboard, Shield } from 'lucide-react'
+import { Menu, X, Moon, Sun, LogOut, User, LayoutDashboard, Shield, BarChart3 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -32,6 +32,7 @@ export default function Navbar() {
             {user && (
               <>
                 <Link to="/dashboard" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors font-medium">Dashboard</Link>
+                <Link to="/trades" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors font-medium">My Trades</Link>
                 {profile?.role === 'admin' && (
                   <Link to="/admin" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors font-medium flex items-center gap-1">
                     <Shield className="w-4 h-4" /> Admin
@@ -92,6 +93,7 @@ export default function Navbar() {
               {user && (
                 <>
                   <Link to="/dashboard" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-border font-medium">Dashboard</Link>
+                  <Link to="/trades" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-border font-medium">My Trades</Link>
                   {profile?.role === 'admin' && (
                     <Link to="/admin" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-dark-border font-medium">Admin Panel</Link>
                   )}

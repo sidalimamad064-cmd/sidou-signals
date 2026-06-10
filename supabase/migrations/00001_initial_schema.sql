@@ -89,6 +89,46 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
 
+-- Create trades table for user personal trading history
+CREATE TABLE IF NOT EXISTS trades (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  pair TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('buy', 'sell')),
+  entry_price DECIMAL NOT NULL,
+  exit_price DECIMAL,
+  quantity DECIMAL NOT NULL DEFAULT 1,
+  result TEXT CHECK (result IN ('win', 'loss', 'pending')),
+  profit_loss DECIMAL DEFAULT 0,
+  notes TEXT,
+  trade_date TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE trades ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own trades"
+  ON trades FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own trades"
+  ON trades FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own trades"
+  ON trades FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own trades"
+  ON trades FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Admins can view all trades"
+  ON trades FOR SELECT
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
 -- Seed some example signals
 INSERT INTO signals (pair, type, entry, target, profit, status) VALUES
   ('BTC/USD', 'buy', '$65,432', '$72,000', 10.0, 'active'),
