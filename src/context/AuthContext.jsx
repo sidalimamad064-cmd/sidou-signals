@@ -7,35 +7,64 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [supabaseError, setSupabaseError] = useState(null)
 
   useEffect(() => {
+    let mounted = true
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-      if (session?.user) await fetchProfile(session.user.id)
-      setLoading(false)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) throw error
+        if (mounted) {
+          setUser(session?.user ?? null)
+          if (session?.user) await fetchProfile(session.user.id)
+          setLoading(false)
+        }
+      } catch (err) {
+        console.error('Supabase getSession error:', err)
+        if (mounted) {
+          setSupabaseError(err.message)
+          setLoading(false)
+        }
+      }
     }
     getSession()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
+      try {
+        if (mounted) {
+          setUser(session?.user ?? null)
+          if (session?.user) {
+            await fetchProfile(session.user.id)
+          } else {
+            setProfile(null)
+          }
+        }
+      } catch (err) {
+        console.error('Supabase auth state change error:', err)
+        if (mounted) setSupabaseError(err.message)
       }
     })
 
-    return () => subscription?.unsubscribe()
+    return () => {
+      mounted = false
+      subscription?.unsubscribe()
+    }
   }, [])
 
   const fetchProfile = async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    setProfile(data)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (error) throw error
+      setProfile(data)
+    } catch (err) {
+      console.error('Fetch profile error:', err)
+      setSupabaseError(err.message)
+    }
   }
 
   const refreshProfile = async () => {
@@ -43,13 +72,18 @@ export function AuthProvider({ children }) {
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+      setProfile(null)
+    } catch (err) {
+      console.error('Sign out error:', err)
+      setSupabaseError(err.message)
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile, supabaseError }}>
       {children}
     </AuthContext.Provider>
   )
